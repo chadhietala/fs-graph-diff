@@ -22,7 +22,13 @@ let fsGraph = new FSGraph({
  */
 let patch1 = fsGraph.compute(fileEntries);
 
+fsGraph.printGraph();
+
 let end = fileEntries.length - 2;
-// let patch2 = fsGraph.compute(fileEntries.slice(0, end));
+let patch2 = fsGraph.compute(fileEntries.slice(0, end));
+
+fsGraph.printGraph();
+
+let patch3 = fsGraph.compute(fileEntries);
 
 fsGraph.printGraph();

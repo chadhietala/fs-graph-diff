@@ -129,7 +129,6 @@ export default class FSGraph {
     if (inVertices.length === 0) {
       this.graph.removeNode(id);
       outVertices.forEach(node => {
-        console.log(node);
         this.removeFromGraph(this.graph.node(node).relativePath);
       });
     }
