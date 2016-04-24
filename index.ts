@@ -7,12 +7,14 @@ import {
 import { writeFileSync } from 'fs';
 import { write as writeGraph } from 'graphlib-dot';
 import { normalizeRelativePath } from './utils';
+import { normalize } from 'path';
+import { extname } from 'path';
+import { moduleResolve } from 'amd-name-resolver'
 
 export interface FSGraphOptions {
-  root: string;
-  namespace: string;
   srcDir: string;
   destDir: string;
+  namespace: string;
 }
 
 export default class FSGraph {
@@ -21,16 +23,14 @@ export default class FSGraph {
   srcDir: string;
   destDir: string;
   printed: number;
-  root: string;
   namespace: string;
   constructor(options: FSGraphOptions) {
     this.srcDir = options.srcDir;
     this.destDir = options.destDir;
-    this.root = options.root;
-    this.namespace = options.namespace;
     this.currentTree = new FSTree();
     this.graph = new Graph();
     this.printed = 0;
+    this.namespace = options.namespace;
   }
 
   private verifyGraph(relativePath: string, inputPath: string) {
@@ -59,28 +59,58 @@ export default class FSGraph {
     }).filter(Boolean);
   }
 
+  private pathByNamespace(relativePath) {
+    let parts = relativePath.split('/');
+    let namespace = parts[0];
+    let id = relativePath.replace(extname(relativePath), '');
+    let path = relativePath;
+
+    return {
+      namespace,
+      id,
+      path
+    }
+  }
+
   private addToGraph(relativePath, inputPath, outputPath) {
+    let normalizedPath = this.pathByNamespace(relativePath);
+
+    if (this.graph.node(normalizedPath.id)) return;
+
     let mod = new Module({
-      root: this.root,
-      namespace: this.namespace,
+      id: normalizedPath.id,
+      namespace: normalizedPath.namespace,
+      relativePath,
       inputPath,
-      outputPath,
-      relativePath
+      outputPath
     });
 
     this.graph.setNode(mod.id, mod);
+
     mod.imports.forEach(dep => {
-      this.graph.setEdge(mod.id, dep)
+      this.graph.setEdge(mod.id, dep);
+      let relativePath = moduleResolve(dep, mod.id);
+      let normalizedPath = this.pathByNamespace(relativePath);
+
+      if (normalizedPath.namespace === this.namespace) {
+        let inputPath = `${this.srcDir}/${relativePath}.ts`;
+        let outputPath = `${this.destDir}/${relativePath}.ts`;
+        this.addToGraph(relativePath, inputPath, outputPath);
+      } else {
+        console.log('EXTERNAL: ' + normalizedPath.path);
+      }
     });
+
     return [inputPath];
   }
 
   private removeFromGraph(relativePath) {
-    let normalizedPath = normalizeRelativePath(this.namespace, relativePath);
+    let normalizedPath = this.pathByNamespace(relativePath);
+    let id = normalizedPath.id;
 
-    let inEdges = this.graph.inEdges(normalizedPath) || []
+    let inEdges = this.graph.inEdges(id) || []
     let inVertices = inEdges.map(edge => edge.v);
-    let outEdges = this.graph.outEdges(normalizedPath) || [];
+    let outEdges = this.graph.outEdges(id) || [];
     let outVertices = outEdges.map(edge => edge.w);
 
     /**
@@ -97,9 +127,9 @@ export default class FSGraph {
      */
 
     if (inVertices.length === 0) {
-      this.graph.removeNode(normalizedPath);
+      this.graph.removeNode(id);
       outVertices.forEach(node => {
-        console.log(node, normalizedPath);
+        console.log(node);
         this.removeFromGraph(this.graph.node(node).relativePath);
       });
     }

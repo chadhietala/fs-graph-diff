@@ -2,38 +2,31 @@ import { transform } from 'babel-core';
 import { readFileSync } from 'fs';
 import { ImportDeclaration } from 'babel-types'
 import traverse from 'babel-traverse';
-import { difference, normalizeRelativePath } from './utils';
+import { difference } from './utils';
 import { moduleResolve } from 'amd-name-resolver';
-import { extname } from 'path';
 
 export interface ModuleOptions {
-  root: string;
   namespace: string;
-  relativePath: string;
+  id: string;
   inputPath: string;
   outputPath: string;
+  relativePath: string;
 }
 
 export default class Module {
   public imports: string[];
   public id: string;
-  namespace: string;
+  public relativePath: string;
   ast: any;
   inputPath: string;
   outputPath: string;
-  relativePath: string;
 
   constructor(options: ModuleOptions) {
-    let relativePath = options.relativePath;
-    this.namespace = options.namespace;
-
-    let ext = extname(relativePath);
-    this.id = normalizeRelativePath(options.namespace, relativePath);
-    this.inputPath = options.inputPath;
+    this.id = options.id;
     this.outputPath = options.outputPath;
-    this.relativePath = relativePath;
     let ast = this.ast = this.parse(options.inputPath);
     this.imports = this.captureImports(ast);
+    this.relativePath = options.relativePath;
   }
 
   parse(inputPath: string): Object {
@@ -50,7 +43,9 @@ export default class Module {
       }
     });
 
-    return imports.map((imp) => moduleResolve(imp.source.value, this.id));
+    return imports.map((imp) => {
+      return moduleResolve(imp.source.value, this.id);
+    });
   }
 
   public calculateImports() {

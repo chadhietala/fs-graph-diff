@@ -1,5 +1,5 @@
 import Foo from '../foo';
-import traverse from 'lodash';
+// import traverse from 'lodash';
 export default class Route {
 
 }

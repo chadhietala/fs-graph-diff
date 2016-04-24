@@ -3,14 +3,14 @@ import { entries } from 'walk-sync';
 import { resolve } from 'path';
 
 let tmp = resolve('./tmp-dir');
-let fixtures = resolve('./test/app');
+let fixtures = resolve('./test/fixtures');
 let fileEntries = entries(fixtures);
 
+
 let fsGraph = new FSGraph({
-  root: process.cwd(),
-  namespace: 'dummy',
   srcDir: fixtures,
-  destDir: tmp
+  destDir: tmp,
+  namespace: 'dummy' // Maybe we can make this happen for free?
 });
 
 /**
@@ -23,6 +23,6 @@ let fsGraph = new FSGraph({
 let patch1 = fsGraph.compute(fileEntries);
 
 let end = fileEntries.length - 2;
-let patch2 = fsGraph.compute(fileEntries.slice(0, end));
+// let patch2 = fsGraph.compute(fileEntries.slice(0, end));
 
 fsGraph.printGraph();
