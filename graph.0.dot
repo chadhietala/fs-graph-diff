@@ -1,0 +1,14 @@
+strict digraph {
+  "dummy/bar" [namespace=dummy,id="dummy/bar",inputPath="/Users/chietala/workspace/fs-graph/test/app/bar.ts",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/bar.ts",relativePath="bar.ts",ast="[object Object]",imports=""]
+  "dummy/bizz" [namespace=dummy,id="dummy/bizz",inputPath="/Users/chietala/workspace/fs-graph/test/app/bizz.ts",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/bizz.ts",relativePath="bizz.ts",ast="[object Object]",imports="dummy/bar,dummy/foo"]
+  "dummy/foo" [namespace=dummy,id="dummy/foo",inputPath="/Users/chietala/workspace/fs-graph/test/app/foo.ts",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/foo.ts",relativePath="foo.ts",ast="[object Object]",imports="dummy/bar"]
+  "dummy/index" [namespace=dummy,id="dummy/index",inputPath="/Users/chietala/workspace/fs-graph/test/app/index.ts",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/index.ts",relativePath="index.ts",ast="[object Object]",imports="dummy/foo"]
+  "dummy/routes/application" [namespace=dummy,id="dummy/routes/application",inputPath="/Users/chietala/workspace/fs-graph/test/app/routes/application.ts",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/routes/application.ts",relativePath="routes/application.ts",ast="[object Object]",imports="dummy/foo,lodash"]
+  lodash
+  "dummy/bizz" -> "dummy/bar"
+  "dummy/bizz" -> "dummy/foo"
+  "dummy/foo" -> "dummy/bar"
+  "dummy/index" -> "dummy/foo"
+  "dummy/routes/application" -> "dummy/foo"
+  "dummy/routes/application" -> lodash
+}

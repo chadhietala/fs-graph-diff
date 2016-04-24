@@ -1,0 +1,27 @@
+{
+  "name": "fs-graph",
+  "version": "0.0.0",
+  "description": "Reflect retained ES6 graphs onto disk",
+  "main": "dist/index.js",
+  "scripts": {
+    "compile": "tsc --watch",
+    "test": "tsc && node dist/test && dot -Tpng graph.0.dot > graph.png"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "amd-name-resolver": "0.0.5",
+    "babel-core": "^6.7.7",
+    "babel-traverse": "^6.7.6",
+    "fast-ordered-set": "^1.0.2",
+    "fs-tree-diff": "^0.4.4",
+    "graphlib": "^2.1.0",
+    "graphlib-dot": "^0.6.2",
+    "mkdirp": "^0.5.1",
+    "walk-sync": "^0.2.6"
+  },
+  "devDependencies": {
+    "tslint": "^3.8.0",
+    "typescript": "^1.8.10"
+  }
+}
