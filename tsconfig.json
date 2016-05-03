@@ -19,6 +19,7 @@
     "typings/mkdirp/mkdirp.d.ts",
     "typings/fast-ordered-set/fast-ordered-set.d.ts",
     "index.ts",
-    "test/index.ts"
+    "test/index.ts",
+    "test/helpers.ts"
   ]
 }

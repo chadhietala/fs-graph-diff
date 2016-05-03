@@ -1,4 +1,4 @@
-import Set from 'fast-ordered-set';
+import Set = require('fast-ordered-set');
 import { extname } from 'path';
 import { moduleResolve } from 'amd-name-resolver';
 

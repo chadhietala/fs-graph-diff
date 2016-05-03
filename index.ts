@@ -34,7 +34,9 @@ export default class FSGraph {
   }
 
   private verifyGraph(relativePath: string, inputPath: string) {
-    let mod = this.graph.node(relativePath);
+    let normalizedPath = this.pathByNamespace(relativePath);
+
+    let mod = this.graph.node(normalizedPath.id);
     let patchImports = mod.calculateImports();
     return patchImports.map(patch => {
       let operation = patch[0];
@@ -172,7 +174,7 @@ export default class FSGraph {
     this.printed++;
   }
 
-  compute(entries) {
+  calculatePatch(entries) {
     let nextTree = FSTree.fromEntries(entries);
     let currentTree = this.currentTree;
     this.currentTree = nextTree;

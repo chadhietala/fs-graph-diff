@@ -17,5 +17,5 @@ interface SetConstructor {
 declare var Set: SetConstructor;
 
 declare module "fast-ordered-set" {
-  export default Set;
+  export = Set;
 }

@@ -1,18 +1,15 @@
+/// <reference path="../walk-sync/walk-sync.d.ts" />
+
 declare module "fs-tree-diff" {
+  import { Entry } from 'walk-sync';
 
   interface Options {
     entries?: Array<Object>
   }
 
-  interface Enties {
-    [0]: string;
-    [1]: string;
-    [2]: Object;
-  }
-
   class FSTreeDiff {
     constructor(options?: Options);
-    static fromEntries(entries: Enties): any;
+    static fromEntries(entries: Entry[]): any;
     calculatePatch(tree: FSTreeDiff): Array<Array<string>>;
   }
 

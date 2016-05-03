@@ -24,6 +24,7 @@ export default class Module {
   constructor(options: ModuleOptions) {
     this.id = options.id;
     this.outputPath = options.outputPath;
+    this.inputPath = options.inputPath;
     let ast = this.ast = this.parse(options.inputPath);
     this.imports = this.captureImports(ast);
     this.relativePath = options.relativePath;
@@ -35,10 +36,22 @@ export default class Module {
 
   captureImports(ast) {
     let imports = [];
+    let exports = [];
+    let reexports = [];
+    let exportAllSources = [];
     traverse(ast, {
       enter(path) {
         if (path.isImportDeclaration()) {
           imports.push(path.node);
+        }
+
+        if (path.isExportAllDeclaration()) {
+          exportAllSources.push(path.node);
+        }
+
+        if (path.isExportDeclaration() ||
+            path.isExportNamedDeclaration()) {
+          exports.push(path.node);
         }
       }
     });
