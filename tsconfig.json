@@ -8,6 +8,7 @@
     "moduleResolution": "node"
   },
   "files": [
+    "typings/fs-extra/fs-extra.d.ts",
     "typings/node/node.d.ts",
     "typings/babel-core/babel-core.d.ts",
     "typings/babel-traverse/babel-traverse.d.ts",

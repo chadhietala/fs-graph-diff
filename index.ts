@@ -46,11 +46,11 @@ export default class FSGraph {
           this.graph.setEdge(relativePath, importPath);
 
           let inEdges = this.graph.outEdges(importPath);
-          let inEdgePaths = inEdges.map(edge => this.graph.node(edge.v).inputPath)
+          let inEdgePaths = inEdges.map(edge => this.graph.node(edge.v).inputPath);
 
           return [inputPath, ...inEdgePaths];
         } else if (operation === 'disconnect') {
-          this.graph.removeEdge(relativePath, importPath);
+          this.graph.removeEdge(normalizedPath.id, importPath);
 
           let inEdges = this.graph.inEdges(importPath);
 

@@ -39,19 +39,11 @@ export default class Module {
     let exports = [];
     let reexports = [];
     let exportAllSources = [];
+
     traverse(ast, {
       enter(path) {
         if (path.isImportDeclaration()) {
           imports.push(path.node);
-        }
-
-        if (path.isExportAllDeclaration()) {
-          exportAllSources.push(path.node);
-        }
-
-        if (path.isExportDeclaration() ||
-            path.isExportNamedDeclaration()) {
-          exports.push(path.node);
         }
       }
     });

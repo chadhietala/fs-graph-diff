@@ -21,6 +21,7 @@
     "walk-sync": "^0.2.6"
   },
   "devDependencies": {
+    "fs-extra": "^0.30.0",
     "tslint": "^3.8.0",
     "typescript": "^1.8.10"
   }
