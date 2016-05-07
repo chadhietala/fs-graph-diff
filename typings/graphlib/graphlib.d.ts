@@ -17,6 +17,7 @@ declare module "graphlib" {
     setEdge(sourceNode: string, targetNode: string, label?: any): void;
     removeEdge(sourceNode: string, targetNode: string): void;
     node(node: string): any;
+    nodes(): string[];
     outEdges(node: string): Edge[];
     inEdges(node: string): Edge[];
     removeNode(node: string): void;

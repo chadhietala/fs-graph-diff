@@ -102,8 +102,6 @@ export default class FSGraph {
         console.log('EXTERNAL: ' + normalizedPath.path);
       }
     });
-
-    return [inputPath];
   }
 
   private removeFromGraph(relativePath) {
@@ -113,59 +111,35 @@ export default class FSGraph {
     let inEdges = this.graph.inEdges(id) || []
     let inVertices = inEdges.map(edge => edge.v);
     let outEdges = this.graph.outEdges(id) || [];
-    let outVertices = outEdges.map(edge => edge.w);
+    let outVertices = outEdges.map(edge => edge.w) || [];
 
-    /**
-     * File has been removed from input
-     *
-     * look if anything was pointing at it, if so
-     *    throw Error as the node was retained in the graph
-     *
-     * if nothing is pointing at it look at it's outEdges to
-     * see what it was point at. If that outEdge has a single
-     * inward edge, recursively check node for removal
-     *
-     *
-     */
+
 
     if (inVertices.length === 0) {
       this.graph.removeNode(id);
       outVertices.forEach(node => {
-        this.removeFromGraph(this.graph.node(node).relativePath);
+        if (this.graph.node(node)) {
+                  this.removeFromGraph(this.graph.node(node).relativePath);
+
+        }
       });
     }
-
-    // if (inEdges.length > 0) {
-    //   console.log(inEdges, relativePath);
-    // }
-
-    // if (inVertices.length > 0) {
-    //   inVertices.forEach(node => {
-    //     this.removeFromGraph(this.graph.node(node).relativePath);
-    //   });
-    // }
-
-    // if (inVertices.length === 0) {
-    //   // this.graph.removeNode(normalizedPath);
-    // }
-
-
-
-    return [];
-
   }
 
-  private computeGraph(operation: string, relativePath: string): string[] {
+  private computeGraph(operation: string, relativePath: string): void {
     let outputPath = `${this.destDir}/${relativePath}`;
     let inputPath = `${this.srcDir}/${relativePath}`;
 
     switch (operation) {
       case 'add':
-        return this.addToGraph(relativePath, inputPath, outputPath);
+        this.addToGraph(relativePath, inputPath, outputPath);
+        break;
       case 'verify':
-        return this.verifyGraph(relativePath, inputPath);
+        this.verifyGraph(relativePath, inputPath);
+        break;
       case 'remove':
-        return this.removeFromGraph(relativePath);
+        this.removeFromGraph(relativePath);
+        break;
     }
   }
 
@@ -180,26 +154,23 @@ export default class FSGraph {
     this.currentTree = nextTree;
     var patches = currentTree.calculatePatch(nextTree).map(patch => [patch[0], patch[1]]);
 
-    let graphPatches = [];
-    const graphPatch = (patches) => graphPatches = graphPatches.concat(patches);
-
     patches.forEach(patch => {
       let operation = patch[0];
       let relativePath = patch[1];
       switch(operation) {
         case 'change':
-          graphPatch(this.computeGraph('verify', relativePath));
+          this.computeGraph('verify', relativePath);
           break;
         case 'create':
-          graphPatch(this.computeGraph('add', relativePath));
+          this.computeGraph('add', relativePath);
           break;
         case 'unlink':
-          graphPatch(this.computeGraph('remove', relativePath));
+          this.computeGraph('remove', relativePath);
           break;
       }
     });
 
-    return graphPatches;
+    return this.graph.nodes().map(node => this.graph.node(node).relativePath);
 
   }
 }

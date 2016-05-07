@@ -31,47 +31,49 @@ let patch1 = fsGraph.calculatePatch(fileEntries);
 
 fsGraph.printGraph();
 
+console.log('Initial Add:\n', patch1);
+
 let end = fileEntries.length - 2;
 let patch2 = fsGraph.calculatePatch(fileEntries.slice(0, end));
 
-fsGraph.printGraph();
-
-let patch3 = fsGraph.calculatePatch(fileEntries);
+console.log('Removal:\n', patch2);
 
 fsGraph.printGraph();
 
-let updatedEntries = fileEntries.map((currentEntry, i) => {
-  if (i === 1) {
-    return entry({
-      relativePath: currentEntry.relativePath
-    })
-  }
-  return currentEntry;
-});
+// let patch3 = fsGraph.calculatePatch(fileEntries);
 
-// Idempotent
-let patch4 = fsGraph.calculatePatch(updatedEntries);
+// fsGraph.printGraph();
 
-fsGraph.printGraph();
+// let updatedEntries = fileEntries.map((currentEntry, i) => {
+//   if (i === 1) {
+//     return entry({
+//       relativePath: currentEntry.relativePath
+//     })
+//   }
+//   return currentEntry;
+// });
 
-// Reset
-let patch5 = fsGraph.calculatePatch(fileEntries);
+// // Idempotent
+// let patch4 = fsGraph.calculatePatch(updatedEntries);
 
-fsGraph.printGraph();
+// fsGraph.printGraph();
 
-let patch6 = fsGraph.calculatePatch(addedEntries);
+// // Reset
+// let patch5 = fsGraph.calculatePatch(fileEntries);
 
-fsGraph.printGraph();
+// fsGraph.printGraph();
+
+// let patch6 = fsGraph.calculatePatch(addedEntries);
+
+// fsGraph.printGraph();
 
 copySync('./test/application.ts', './test/fixtures/dummy/routes/application.ts');
 unlinkSync('./test/application.ts');
 
-// Reset
-let patch7 = fsGraph.calculatePatch(fileEntries);
+// // Reset
+// let patch7 = fsGraph.calculatePatch(fileEntries);
 
-console.log(patch1);
-
-fsGraph.printGraph();
+// fsGraph.printGraph();
 
 
 
