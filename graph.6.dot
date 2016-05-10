@@ -1,14 +1,15 @@
 strict digraph {
-  "dummy/bar" [id="dummy/bar",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/bar.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/dummy/bar.ts",ast="[object Object]",imports="",relativePath="dummy/bar.ts"]
-  "dummy/bizz" [id="dummy/bizz",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/bizz.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/dummy/bizz.ts",ast="[object Object]",imports="dummy/bar,dummy/foo",relativePath="dummy/bizz.ts"]
-  "dummy/foo" [id="dummy/foo",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/foo.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/dummy/foo.ts",ast="[object Object]",imports="dummy/bar",relativePath="dummy/foo"]
-  "dummy/index" [id="dummy/index",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/index.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/dummy/index.ts",ast="[object Object]",imports="dummy/foo",relativePath="dummy/index.ts"]
-  "dummy/routes/application" [id="dummy/routes/application",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/routes/application.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/dummy/routes/application.ts",ast="[object Object]",imports="dummy/foo,dummy/routes/leaf",relativePath="dummy/routes/application.ts"]
-  "dummy/routes/leaf" [id="dummy/routes/leaf",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/routes/leaf.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/dummy/routes/leaf.ts",ast="[object Object]",imports="",relativePath="dummy/routes/leaf"]
+  "dummy/bar" [id="dummy/bar",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/bar.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/app/dummy/bar.ts",ast="[object Object]",imports="",relativePath="dummy/bar.ts"]
+  "dummy/bizz" [id="dummy/bizz",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/bizz.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/app/dummy/bizz.ts",ast="[object Object]",imports="dummy/bar,dummy/foo",relativePath="dummy/bizz.ts"]
+  "dummy/foo" [id="dummy/foo",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/foo.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/app/dummy/foo.ts",ast="[object Object]",imports="dummy/bar",relativePath="dummy/foo.ts"]
+  "dummy/index" [id="dummy/index",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/index.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/app/dummy/index.ts",ast="[object Object]",imports="dummy/foo",relativePath="dummy/index.ts"]
+  "dummy/routes/application" [id="dummy/routes/application",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/routes/application.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/app/dummy/routes/application.ts",ast="[object Object]",imports="dummy/foo,dummy/routes/leaf,dummy/bar",relativePath="dummy/routes/application.ts"]
+  "dummy/routes/leaf" [id="dummy/routes/leaf",outputPath="/Users/chietala/workspace/fs-graph/tmp-dir/dummy/routes/leaf.ts",inputPath="/Users/chietala/workspace/fs-graph/test/fixtures/app/dummy/routes/leaf.ts",ast="[object Object]",imports="",relativePath="dummy/routes/leaf.ts"]
   "dummy/bizz" -> "dummy/bar"
   "dummy/bizz" -> "dummy/foo"
   "dummy/foo" -> "dummy/bar"
   "dummy/index" -> "dummy/foo"
   "dummy/routes/application" -> "dummy/foo"
   "dummy/routes/application" -> "dummy/routes/leaf"
+  "dummy/routes/application" -> "dummy/bar"
 }

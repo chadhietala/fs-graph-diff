@@ -9,7 +9,6 @@ export interface ModuleOptions {
   namespace: string;
   id: string;
   inputPath: string;
-  outputPath: string;
   relativePath: string;
 }
 
@@ -23,7 +22,6 @@ export default class Module {
 
   constructor(options: ModuleOptions) {
     this.id = options.id;
-    this.outputPath = options.outputPath;
     this.inputPath = options.inputPath;
     let ast = this.ast = this.parse(options.inputPath);
     this.imports = this.captureImports(ast);

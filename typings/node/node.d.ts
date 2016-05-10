@@ -111,7 +111,7 @@ declare var Buffer: {
     /**
      * Produces a Buffer backed by the same allocated memory as
      * the given {ArrayBuffer}.
-     * 
+     *
      *
      * @param arrayBuffer The ArrayBuffer with which to share memory.
      */
@@ -1340,6 +1340,8 @@ declare module "fs" {
         close(): void;
         bytesWritten: number;
     }
+
+    export function mount(path: string, fs: any): void;
 
     /**
      * Asynchronous rename.

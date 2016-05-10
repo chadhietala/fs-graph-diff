@@ -7,5 +7,5 @@ declare module "walk-sync" {
     size: number;
     isDirectory(): boolean;
   }
-  export function entries(dir: string): Entry[]
+  export function entries(dir: string, options?: any): Entry[]
 }

@@ -9,6 +9,9 @@
   },
   "files": [
     "typings/fs-extra/fs-extra.d.ts",
+    "typings/mock-fs/mock-fs.d.ts",
+    "typings/mountfs/mountfs.d.ts",
+    "typings/quick-temp/quick-temp.d.ts",
     "typings/node/node.d.ts",
     "typings/babel-core/babel-core.d.ts",
     "typings/babel-traverse/babel-traverse.d.ts",
@@ -21,6 +24,7 @@
     "typings/fast-ordered-set/fast-ordered-set.d.ts",
     "index.ts",
     "test/index.ts",
+    "test/test.ts",
     "test/helpers.ts"
   ]
 }

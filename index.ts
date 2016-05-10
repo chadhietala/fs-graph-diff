@@ -13,7 +13,6 @@ import { moduleResolve } from 'amd-name-resolver'
 
 export interface FSGraphOptions {
   srcDir: string;
-  destDir: string;
   namespace: string;
 }
 
@@ -26,7 +25,6 @@ export default class FSGraph {
   namespace: string;
   constructor(options: FSGraphOptions) {
     this.srcDir = options.srcDir;
-    this.destDir = options.destDir;
     this.currentTree = new FSTree();
     this.graph = new Graph();
     this.printed = 0;
@@ -74,7 +72,7 @@ export default class FSGraph {
     }
   }
 
-  private addToGraph(relativePath, inputPath, outputPath) {
+  private addToGraph(relativePath, inputPath) {
     let normalizedPath = this.pathByNamespace(relativePath);
 
     if (this.graph.node(normalizedPath.id)) return;
@@ -83,21 +81,19 @@ export default class FSGraph {
       id: normalizedPath.id,
       namespace: normalizedPath.namespace,
       relativePath,
-      inputPath,
-      outputPath
+      inputPath
     });
 
     this.graph.setNode(mod.id, mod);
 
     mod.imports.forEach(dep => {
       this.graph.setEdge(mod.id, dep);
-      let relativePath = moduleResolve(dep, mod.id);
       let normalizedPath = this.pathByNamespace(relativePath);
 
       if (normalizedPath.namespace === this.namespace) {
         let inputPath = `${this.srcDir}/${relativePath}.ts`;
         let outputPath = `${this.destDir}/${relativePath}.ts`;
-        this.addToGraph(relativePath, inputPath, outputPath);
+        this.addToGraph(relativePath, inputPath);
       } else {
         console.log('EXTERNAL: ' + normalizedPath.path);
       }
@@ -113,26 +109,22 @@ export default class FSGraph {
     let outEdges = this.graph.outEdges(id) || [];
     let outVertices = outEdges.map(edge => edge.w) || [];
 
-
-
     if (inVertices.length === 0) {
       this.graph.removeNode(id);
       outVertices.forEach(node => {
         if (this.graph.node(node)) {
-                  this.removeFromGraph(this.graph.node(node).relativePath);
-
+          this.removeFromGraph(this.graph.node(node).relativePath);
         }
       });
     }
   }
 
   private computeGraph(operation: string, relativePath: string): void {
-    let outputPath = `${this.destDir}/${relativePath}`;
     let inputPath = `${this.srcDir}/${relativePath}`;
 
     switch (operation) {
       case 'add':
-        this.addToGraph(relativePath, inputPath, outputPath);
+        this.addToGraph(relativePath, inputPath);
         break;
       case 'verify':
         this.verifyGraph(relativePath, inputPath);
@@ -171,6 +163,5 @@ export default class FSGraph {
     });
 
     return this.graph.nodes().map(node => this.graph.node(node).relativePath);
-
   }
 }
