@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+<body>
+
+<script src="./node_modules/graphlib/dist/graphlib.min.js"></script>
+<script src="http://cpettitt.github.io/project/graphlib-dot/latest/graphlib-dot.min.js"></script>
+<script src="./node_modules/viz.js/viz.js"></script>
+
+<script>
+const Graph = graphlibDot.graphlib.Graph;
+const write = graphlibDot.write;
+const postOrder = graphlibDot.graphlib.alg.postorder;
+const components = graphlibDot.graphlib.alg.components;
+
+class Module {
+  constructor(root, name) {
+    this.root = root;
+    this.name = name;
+    this._isRooted = false;
+  }
+
+  isRooted() {
+    return this._isRooted;
+  }
+
+  rooted() {
+    this._isRooted = true;
+  }
+}
+
+class FSGraph {
+  constructor() {
+    this.roots = [...arguments];
+    this.graph = new Graph();
+    this.dependencyStack = [];
+    this.cacheKey = null;
+  }
+
+  _isRootEntry(potentialRoot) {
+    return this.roots.includes(potentialRoot);
+  }
+
+  create(patches, moduleInfos) {
+    this.cacheKey = JSON.stringify(moduleInfos);
+    patches.forEach(([, relativePath]) => {
+      let ns = this._ns(relativePath);
+      let moduleInfo = moduleInfos[ns];
+      for (let i = 0; i < moduleInfo.files.length; i++) {
+        let fileName = moduleInfo.files[i].name;
+        if (fileName === relativePath) {
+          this._appendNode(ns, relativePath, moduleInfo.files[i]);
+          break;
+        }
+      }
+    });
+  }
+
+  update(patches, moduleInfos) {
+    let [op, relativePath] = patches[0];
+    if (this.cacheKey !== JSON.stringify(moduleInfos)) {
+      switch (op) {
+        case 'update':
+          this._update(patches, moduleInfos);
+          break;
+        case 'delete':
+          this._remove(patches, moduleInfos);
+          break;
+      }
+    }
+  }
+
+  _remove() {
+
+  }
+
+  _update(patches, moduleInfos) {
+    this.cacheKey = JSON.stringify(moduleInfos);
+    patches.forEach(([, relativePath]) => {
+      let ns = this._ns(relativePath);
+      let moduleInfo = moduleInfos[ns];
+      for (let i = 0; i < moduleInfo.files.length; i++) {
+        let fileName = moduleInfo.files[i].name;
+        if (fileName === relativePath) {
+          this._verifyNode(relativePath, moduleInfo.files[i]);
+          break;
+        }
+      }
+    });
+  }
+
+  _verifyNode(relativePath, moduleInfo) {
+    let outEdges = this.graph.outEdges(relativePath);
+    if (moduleInfo.imports.length === 0) {
+      outEdges.forEach((edge) => {
+        let { w } = edge;
+        this.graph.removeNode(w);
+      });
+    } else {
+      let currentEdges = moduleInfo.imports.forEach(({ source }) => source);
+      outEdges.forEach(({ w: outEdge }) => {
+        if (!currentEdges.includes(outEdge)) {
+          this.graph.removeNode(outEdge);
+        }
+      });
+    }
+  }
+
+  _getRoots() {
+    let nodes = this.graph.nodes();
+    let rooted = {};
+    nodes.forEach((name) => {
+      let { root } =  this.graph.node(name);
+      if (this._isRootEntry(root)) {
+        if (rooted[root] && !rooted[root].includes(name)) {
+          rooted[root].push(name);
+        } else if (!rooted[root]) {
+          rooted[root] = [name];
+        }
+      }
+    });
+
+    return rooted;
+  }
+
+  prune() {
+    let pruned = {};
+    let roots = this._getRoots();
+    let rootNames = Object.keys(roots);
+
+    rootNames.forEach((root) => {
+      let _roots = roots[root];
+      _roots.forEach((name) => {
+        let connected = postOrder(this.graph, name);
+        if (pruned[root]) {
+          pruned[root] = pruned[root].concat(connected.filter((node) => {
+            return !pruned[root].includes(node);
+          }))
+        } else {
+          pruned[root] = connected;
+        }
+      })
+    });
+
+    let nodes = this.graph.nodes();
+
+    Object.keys(pruned).forEach((root) => {
+      nodes.forEach((node) => {
+        let module = this.graph.node(node);
+        if (!pruned[root].includes(node) || !module.isRooted()) {
+          this.graph.removeNode(node);
+        }
+      });
+    });
+  }
+
+  _appendNode(root, relativePath, moduleInfo) {
+    let module = this.graph.node(relativePath);
+
+    if (module && !module.root) {
+      module.root = root;
+    } else {
+      module = new Module(root, relativePath);
+      this.graph.setNode(relativePath, module);
+    }
+
+    if (this._isRootEntry(root)) {
+      module.rooted();
+    }
+
+    moduleInfo.imports.forEach((dependency) => {
+      let dependencyName = `${dependency.source}.js`;
+      let dependencyModule = this.graph.node(dependencyName);
+
+      if (!dependencyModule) {
+        dependencyModule = new Module(null, dependencyName);
+      }
+
+      // transitively mark dependencies as rooted
+      if (module.isRooted()) {
+        dependencyModule.rooted();
+      }
+
+      this.graph.setNode(dependencyName, dependencyModule);
+      this.graph.setEdge(relativePath, `${dependency.source}.js`);
+    });
+  }
+
+  _ns(relativePath) {
+    let [ns] = relativePath.split('/');
+    return ns;
+  }
+
+  serialize() {
+    return write(this.graph)
+  }
+}
+
+
+let graph = new FSGraph('my-app');
+let moduleInfo = {
+  "my-app": {
+    files: [
+      {
+        name: 'my-app/router.js',
+        imports: [
+          {
+            source: 'my-addon/utils/messaging',
+            specifiers: [
+              {
+                imported: 'default',
+                kind: 'name',
+                local: 'Messaging'
+              }
+            ]
+          }
+        ]
+      },
+      {
+        name: 'my-app/main.js',
+        imports: []
+      },
+      {
+        name: 'my-app/ui/components/foo-bar/component.js',
+        imports: []
+      }
+    ]
+  },
+  "my-addon":     {
+    files: [
+      {
+        name: 'my-addon/utils/messaging.js',
+        imports: []
+      },
+      {
+        name: 'my-addon/utils/strings.js',
+        imports: []
+      },
+      {
+        name: 'my-addon/ui/components/baz-bar/component.js',
+        imports: [
+          {
+            source: 'my-addon/utils/messaging',
+            specifiers: [
+              {
+                imported: 'default',
+                kind: 'name',
+                local: 'Messaging'
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+};
+
+graph.create(
+  [
+    ['create', 'my-app/router.js'],
+    ['create', 'my-app/main.js'],
+    ['create', 'my-app/ui/components/foo-bar/component.js'],
+    ['create', 'my-addon/ui/components/baz-bar/component.js'],
+    ['create', 'my-addon/utils/strings.js'],
+    ['create', 'my-addon/utils/messaging.js'],
+  ],
+  moduleInfo
+);
+
+graph.prune();
+
+// Idemponent change as far as dependencies go
+graph.update(
+  [['update', 'my-app/router.js']],
+  moduleInfo
+);
+
+graph.prune();
+
+let copy = JSON.parse(JSON.stringify(moduleInfo));
+
+copy['my-app'].files[0].imports = [];
+
+graph.update(
+  [['update', 'my-app/router.js']],
+  copy
+)
+
+graph.prune();
+
+// VISUALIZE
+document.body.innerHTML = Viz(graph.serialize());
+
+
+</script>
+</body>
+</html>

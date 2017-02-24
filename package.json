@@ -5,12 +5,14 @@
   "main": "dist/index.js",
   "scripts": {
     "compile": "tsc --watch",
+    "tsc": "tsc",
     "gen-graph": "tsc && node dist/test && dot -Tpng graph.0.dot > graph.png",
     "test": "tsc && ava dist/test/test.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@types/node": "^7.0.0",
     "amd-name-resolver": "0.0.5",
     "babel-core": "^6.7.7",
     "babel-traverse": "^6.7.6",
@@ -19,6 +21,7 @@
     "graphlib": "^2.1.0",
     "graphlib-dot": "^0.6.2",
     "mkdirp": "^0.5.1",
+    "viz.js": "^1.7.0",
     "walk-sync": "^0.2.6"
   },
   "devDependencies": {
@@ -28,6 +31,6 @@
     "mountfs": "^0.2.1",
     "quick-temp": "^0.1.5",
     "tslint": "^3.8.0",
-    "typescript": "^1.8.10"
+    "typescript": "^2.2.1"
   }
 }
