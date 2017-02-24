@@ -39,7 +39,7 @@ class FSGraph {
     this.roots = [...arguments];
     this.graph = new Graph();
     this.dependencyStack = [];
-    this.cacheKey = null;
+    this.moduleInfos = null;
   }
 
   _isRootEntry(potentialRoot) {
@@ -47,7 +47,7 @@ class FSGraph {
   }
 
   create(patches, moduleInfos) {
-    this.cacheKey = JSON.stringify(moduleInfos);
+    this.moduleInfos = moduleInfos;
     patches.forEach(([, relativePath]) => {
       let ns = this._ns(relativePath);
       let moduleInfo = moduleInfos[ns];
@@ -59,11 +59,13 @@ class FSGraph {
         }
       }
     });
+
+    this.prune();
   }
 
   update(patches, moduleInfos) {
     let [op, relativePath] = patches[0];
-    if (this.cacheKey !== JSON.stringify(moduleInfos)) {
+    if (JSON.stringify(this.moduleInfos) !== JSON.stringify(moduleInfos)) {
       switch (op) {
         case 'update':
           this._update(patches, moduleInfos);
@@ -80,21 +82,25 @@ class FSGraph {
   }
 
   _update(patches, moduleInfos) {
-    this.cacheKey = JSON.stringify(moduleInfos);
+    this.moduleInfos = moduleInfos;
     patches.forEach(([, relativePath]) => {
       let ns = this._ns(relativePath);
       let moduleInfo = moduleInfos[ns];
       for (let i = 0; i < moduleInfo.files.length; i++) {
         let fileName = moduleInfo.files[i].name;
         if (fileName === relativePath) {
-          this._verifyNode(relativePath, moduleInfo.files[i]);
+          this._verifyNode(ns, relativePath, moduleInfo.files[i]);
           break;
         }
       }
     });
   }
 
-  _verifyNode(relativePath, moduleInfo) {
+  _addTransitives() {
+
+  }
+
+  _verifyNode(ns, relativePath, moduleInfo) {
     let outEdges = this.graph.outEdges(relativePath);
     if (moduleInfo.imports.length === 0) {
       outEdges.forEach((edge) => {
@@ -102,10 +108,16 @@ class FSGraph {
         this.graph.removeNode(w);
       });
     } else {
-      let currentEdges = moduleInfo.imports.forEach(({ source }) => source);
+      moduleInfo.imports.forEach(({ source }) => source);
       outEdges.forEach(({ w: outEdge }) => {
-        if (!currentEdges.includes(outEdge)) {
+        if (!moduleInfo.imports.includes(outEdge)) {
           this.graph.removeNode(outEdge);
+        }
+      });
+
+      moduleInfo.imports.forEach(({ source }) => {
+        if (!this.graph.node(source)) {
+          this._appendNode(ns, relativePath, moduleInfo);
         }
       });
     }
@@ -162,9 +174,7 @@ class FSGraph {
   _appendNode(root, relativePath, moduleInfo) {
     let module = this.graph.node(relativePath);
 
-    if (module && !module.root) {
-      module.root = root;
-    } else {
+    if (!module) {
       module = new Module(root, relativePath);
       this.graph.setNode(relativePath, module);
     }
@@ -176,9 +186,10 @@ class FSGraph {
     moduleInfo.imports.forEach((dependency) => {
       let dependencyName = `${dependency.source}.js`;
       let dependencyModule = this.graph.node(dependencyName);
+      let ns = this._ns(dependencyName);
 
       if (!dependencyModule) {
-        dependencyModule = new Module(null, dependencyName);
+        dependencyModule = new Module(ns, dependencyName);
       }
 
       // transitively mark dependencies as rooted
@@ -187,7 +198,14 @@ class FSGraph {
       }
 
       this.graph.setNode(dependencyName, dependencyModule);
-      this.graph.setEdge(relativePath, `${dependency.source}.js`);
+      this.graph.setEdge(relativePath, dependencyName);
+
+      let [depsOfDep] = this.moduleInfos[ns].files.filter((file) => file.name === dependencyName);
+
+      if (depsOfDep.imports.length > 0) {
+        this._appendNode(dependencyModule.root, dependencyName, depsOfDep);
+      }
+
     });
   }
 
@@ -272,26 +290,66 @@ graph.create(
   moduleInfo
 );
 
-graph.prune();
-
 // Idemponent change as far as dependencies go
+
 graph.update(
   [['update', 'my-app/router.js']],
   moduleInfo
 );
 
-graph.prune();
-
+// Remove the dependency
 let copy = JSON.parse(JSON.stringify(moduleInfo));
-
 copy['my-app'].files[0].imports = [];
 
 graph.update(
   [['update', 'my-app/router.js']],
   copy
-)
+);
 
-graph.prune();
+// Add the dependency back
+graph.update(
+  [['update', 'my-app/router.js']],
+  moduleInfo
+);
+
+copy = JSON.parse(JSON.stringify(moduleInfo));
+
+// Add new import with transitive dependency
+
+copy['my-app'].files[0].imports.push({
+  source: 'my-addon/utils/strings',
+  specifiers: [
+    {
+      imported: 'STRING_1',
+      kind: 'name',
+      local: 'STRING_1'
+    },
+    {
+      imported: 'STRING_2',
+      kind: 'name',
+      local: 'STRING_2'
+    }
+  ]
+});
+
+copy['my-addon'].files[1].imports.push({
+  source: 'my-addon/ui/components/baz-bar/component',
+  specifiers: [
+    {
+      imported: 'default',
+      kind: 'name',
+      local: 'MyThing'
+    }
+  ]
+});
+
+
+// Add the dependency back
+graph.update(
+  [['update', 'my-app/router.js']],
+  copy
+);
+
 
 // VISUALIZE
 document.body.innerHTML = Viz(graph.serialize());
