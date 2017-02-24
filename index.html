@@ -51,6 +51,7 @@ class FSGraph {
     patches.forEach(([, relativePath]) => {
       let ns = this._ns(relativePath);
       let moduleInfo = moduleInfos[ns];
+
       for (let i = 0; i < moduleInfo.files.length; i++) {
         let fileName = moduleInfo.files[i].name;
         if (fileName === relativePath) {
@@ -159,12 +160,14 @@ class FSGraph {
       })
     });
 
+
     let nodes = this.graph.nodes();
 
     Object.keys(pruned).forEach((root) => {
       nodes.forEach((node) => {
         let module = this.graph.node(node);
-        if (!pruned[root].includes(node) || !module.isRooted()) {
+
+        if (!module || !module.isRooted()) {
           this.graph.removeNode(node);
         }
       });
@@ -278,24 +281,29 @@ let moduleInfo = {
   }
 };
 
-graph.create(
-  [
+const patches =   [
     ['create', 'my-app/router.js'],
     ['create', 'my-app/main.js'],
     ['create', 'my-app/ui/components/foo-bar/component.js'],
     ['create', 'my-addon/ui/components/baz-bar/component.js'],
     ['create', 'my-addon/utils/strings.js'],
-    ['create', 'my-addon/utils/messaging.js'],
-  ],
+    ['create', 'my-addon/utils/messaging.js']
+];
+
+/*
+graph.create(
+  patches,
   moduleInfo
 );
 
 // Idemponent change as far as dependencies go
 
+
 graph.update(
   [['update', 'my-app/router.js']],
   moduleInfo
 );
+
 
 // Remove the dependency
 let copy = JSON.parse(JSON.stringify(moduleInfo));
@@ -311,6 +319,7 @@ graph.update(
   [['update', 'my-app/router.js']],
   moduleInfo
 );
+
 
 copy = JSON.parse(JSON.stringify(moduleInfo));
 
@@ -348,7 +357,46 @@ copy['my-addon'].files[1].imports.push({
 graph.update(
   [['update', 'my-app/router.js']],
   copy
-);
+);*/
+
+
+/***************************************/
+
+graph = new FSGraph('my-app', 'my-engine');
+let enginePatches = [['create', 'my-engine/router.js'], ...patches];
+moduleInfo = JSON.parse(JSON.stringify(moduleInfo));
+
+moduleInfo["my-engine"] = {
+  files: [
+    {
+      name: 'my-engine/router.js',
+      imports: [
+        {
+          source: 'my-addon/utils/strings',
+          specifiers: [
+            {
+              imported: 'STRING_1',
+              kind: 'name',
+              local: 'STRING_1'
+            }
+          ]
+        },
+        {
+          source: 'my-addon/ui/components/baz-bar/component',
+          specifiers: [
+            {
+              imported: 'STRING_1',
+              kind: 'name',
+              local: 'STRING_1'
+            }
+          ]
+        }
+      ]
+    },
+  ]
+};
+
+graph.create(enginePatches, moduleInfo);
 
 
 // VISUALIZE
