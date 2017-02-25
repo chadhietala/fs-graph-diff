@@ -32,6 +32,12 @@
 
 <h2>Unroot</h2>
 <div id="unroot"></div>
+
+<h2>Reroot</h2>
+<div id="reroot"></div>
+
+<h2>Unroot + add dependency</h2>
+<div id="unroot-add"></div>
 </div>
 
 <div style="border: 1px solid; padding: 20px; margin-top: 20px;">
@@ -124,12 +130,16 @@ class FSGraph {
   update(patches, moduleInfos) {
     let [op, relativePath] = patches[0];
     if (JSON.stringify(this.moduleInfos) !== JSON.stringify(moduleInfos)) {
+      this.moduleInfos = moduleInfos;
       switch (op) {
         case 'update':
           this._update(patches, moduleInfos);
           break;
         case 'delete':
           this._remove(patches, moduleInfos);
+          break;
+        case 'create':
+          this.create(patches, moduleInfos);
           break;
       }
     }
@@ -159,7 +169,6 @@ class FSGraph {
   }
 
   _update(patches, moduleInfos) {
-    this.moduleInfos = moduleInfos;
     patches.forEach(([, relativePath]) => {
       let ns = this._ns(relativePath);
       let moduleInfo = moduleInfos[ns];
@@ -443,7 +452,7 @@ document.getElementById('add-transitive').innerHTML = Viz(graph.serialize());
 // Unroot a file
 
 copy = JSON.parse(JSON.stringify(copy));
-copy['my-app'].files.shift();
+let stash = copy['my-app'].files.shift();
 
 graph.update(
   [['delete', 'my-app/router.js']],
@@ -451,6 +460,51 @@ graph.update(
 );
 
 document.getElementById('unroot').innerHTML = Viz(graph.serialize());
+
+copy = JSON.parse(JSON.stringify(copy));
+
+copy['my-app'].files.unshift(stash);
+
+graph.update(
+  [['create', 'my-app/router.js']],
+  copy
+);
+
+document.getElementById('reroot').innerHTML = Viz(graph.serialize());
+
+copy = JSON.parse(JSON.stringify(copy));
+
+stash = copy['my-app'].files.shift(stash);
+
+graph.update(
+  [['delete', 'my-app/router.js']],
+  copy
+);
+
+copy = JSON.parse(JSON.stringify(copy));
+
+
+copy['my-app'].files[1].imports.push({
+  source: 'my-addon/ui/components/baz-bar/component',
+  specifiers: [
+    {
+      imported: 'default',
+      kind: 'name',
+      local: 'Component'
+    }
+  ]
+});
+
+console.log(copy['my-app'].files[1]);
+
+debugger;
+graph.update(
+  [['update', 'my-app/ui/components/foo-bar/component.js']],
+  copy
+)
+
+document.getElementById('unroot-add').innerHTML = Viz(graph.serialize());
+
 
 /***************************************/
 
@@ -468,7 +522,7 @@ moduleInfo["my-engine"] = {
   ]
 };
 
-let stash =  [{
+stash =  [{
   source: 'my-addon/utils/strings',
   specifiers: [
     {
