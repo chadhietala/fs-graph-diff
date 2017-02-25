@@ -12,6 +12,44 @@
 <script src="http://cpettitt.github.io/project/graphlib-dot/latest/graphlib-dot.min.js"></script>
 <script src="./node_modules/viz.js/viz.js"></script>
 
+<div style="border: 1px solid; padding: 20px;">
+<h1>Single Root</h1>
+
+<h2>Create</h2>
+<div id="create"></div>
+
+<h2>Idemponent</h2>
+<div id="idempotent"></div>
+
+<h2>Remove Dependency</h2>
+<div id="remove"></div>
+
+<h2>Add back Dependency</h2>
+<div id="add-back"></div>
+
+<h2>Add Dependency With Transitive</h2>
+<div id="add-transitive"></div>
+
+<h2>Unroot</h2>
+<div id="unroot"></div>
+</div>
+
+<div style="border: 1px solid; padding: 20px; margin-top: 20px;">
+<h1>Multi-root</h1>
+<div id="multi-create"></div>
+
+<h2>Idemponent</h2>
+<div id="multi-idempotent"></div>
+
+<h2>Remove Dependency</h2>
+<div id="multi-remove"></div>
+
+<h2>Add Back Dependency</h2>
+<div id="multi-add-back"></div>
+
+<h2>Add Dependency With Shared Boundary</h2>
+<div id="multi-shared-boundary"></div>
+</div>
 <script>
 const Graph = graphlibDot.graphlib.Graph;
 const write = graphlibDot.write;
@@ -19,18 +57,37 @@ const postOrder = graphlibDot.graphlib.alg.postorder;
 const components = graphlibDot.graphlib.alg.components;
 
 class Module {
-  constructor(root, name) {
+  constructor(root, name, parent) {
     this.root = root;
     this.name = name;
-    this._isRooted = false;
+    this._parent = parent;
+    this._roots = [];
   }
 
   isRooted() {
-    return this._isRooted;
+    return this._roots.length > 0;
   }
 
-  rooted() {
-    this._isRooted = true;
+  unrooted(name) {
+    let index = this._roots.indexOf(name);
+    if (index > -1) {
+      this._roots.splice(1, index);
+    }
+  }
+
+  rooted(name) {
+    if (!this._roots.includes(name)) {
+      this._roots.push(name);
+    }
+  }
+
+  chain(root, name) {
+    let mod = new Module(root, name, this);
+    if (this._parent !== 'root') {
+      mod.rooted(this._parent.root);
+    }
+
+    return mod;
   }
 }
 
@@ -78,8 +135,27 @@ class FSGraph {
     }
   }
 
-  _remove() {
+  _remove(patches, moduleInfos) {
+    patches.forEach(([, relativePath]) => {
+      this._removeNodes(relativePath);
+    });
+  }
 
+  _removeNodes(relativePath) {
+    let outEdges = this.graph.outEdges(relativePath);
+    outEdges.forEach(({ v: _vertix, w: _node }) => {
+      this.graph.removeEdge(_vertix, _node);
+      let module = this.graph.node(_node);
+      let inEdges = this.graph.inEdges(_node) || [];
+
+      if (inEdges.length === 0) {
+        let outEdges = this.graph.outEdges(_node);
+        this._removeNodes(_node);
+        this.graph.removeNode(_node);
+      }
+    });
+
+    this.graph.removeNode(relativePath);
   }
 
   _update(patches, moduleInfos) {
@@ -95,10 +171,6 @@ class FSGraph {
         }
       }
     });
-  }
-
-  _addTransitives() {
-
   }
 
   _verifyNode(ns, relativePath, moduleInfo) {
@@ -178,12 +250,12 @@ class FSGraph {
     let module = this.graph.node(relativePath);
 
     if (!module) {
-      module = new Module(root, relativePath);
+      module = new Module(root, relativePath, 'root');
       this.graph.setNode(relativePath, module);
     }
 
     if (this._isRootEntry(root)) {
-      module.rooted();
+      module.rooted(relativePath);
     }
 
     moduleInfo.imports.forEach((dependency) => {
@@ -192,12 +264,12 @@ class FSGraph {
       let ns = this._ns(dependencyName);
 
       if (!dependencyModule) {
-        dependencyModule = new Module(ns, dependencyName);
+        dependencyModule = module.chain(ns, dependencyName);
       }
 
       // transitively mark dependencies as rooted
       if (module.isRooted()) {
-        dependencyModule.rooted();
+        dependencyModule.rooted(relativePath);
       }
 
       this.graph.setNode(dependencyName, dependencyModule);
@@ -290,11 +362,13 @@ const patches =   [
     ['create', 'my-addon/utils/messaging.js']
 ];
 
-/*
+
 graph.create(
   patches,
   moduleInfo
 );
+
+document.getElementById('create').innerHTML = Viz(graph.serialize());
 
 // Idemponent change as far as dependencies go
 
@@ -303,6 +377,9 @@ graph.update(
   [['update', 'my-app/router.js']],
   moduleInfo
 );
+
+
+document.getElementById('idempotent').innerHTML = Viz(graph.serialize());
 
 
 // Remove the dependency
@@ -314,12 +391,15 @@ graph.update(
   copy
 );
 
+document.getElementById('remove').innerHTML = Viz(graph.serialize());
+
 // Add the dependency back
 graph.update(
   [['update', 'my-app/router.js']],
   moduleInfo
 );
 
+document.getElementById('add-back').innerHTML = Viz(graph.serialize());
 
 copy = JSON.parse(JSON.stringify(moduleInfo));
 
@@ -353,12 +433,24 @@ copy['my-addon'].files[1].imports.push({
 });
 
 
-// Add the dependency back
 graph.update(
   [['update', 'my-app/router.js']],
   copy
-);*/
+);
 
+document.getElementById('add-transitive').innerHTML = Viz(graph.serialize());
+
+// Unroot a file
+
+copy = JSON.parse(JSON.stringify(copy));
+copy['my-app'].files.shift();
+
+graph.update(
+  [['delete', 'my-app/router.js']],
+  copy
+);
+
+document.getElementById('unroot').innerHTML = Viz(graph.serialize());
 
 /***************************************/
 
@@ -371,36 +463,63 @@ moduleInfo["my-engine"] = {
     {
       name: 'my-engine/router.js',
       imports: [
-        {
-          source: 'my-addon/utils/strings',
-          specifiers: [
-            {
-              imported: 'STRING_1',
-              kind: 'name',
-              local: 'STRING_1'
-            }
-          ]
-        },
-        {
-          source: 'my-addon/ui/components/baz-bar/component',
-          specifiers: [
-            {
-              imported: 'STRING_1',
-              kind: 'name',
-              local: 'STRING_1'
-            }
-          ]
-        }
       ]
     },
   ]
 };
 
+let stash =  [{
+  source: 'my-addon/utils/strings',
+  specifiers: [
+    {
+      imported: 'STRING_1',
+      kind: 'name',
+      local: 'STRING_1'
+    }
+  ]
+},
+{
+  source: 'my-addon/ui/components/baz-bar/component',
+  specifiers: [
+    {
+      imported: 'STRING_1',
+      kind: 'name',
+      local: 'STRING_1'
+    }
+  ]
+}]
+
 graph.create(enginePatches, moduleInfo);
+
+document.getElementById('multi-create').innerHTML = Viz(graph.serialize());
+
+graph.update(['update', 'my-engine/router.js'], moduleInfo);
+
+document.getElementById('multi-idempotent').innerHTML = Viz(graph.serialize());
+
+copy = JSON.parse(JSON.stringify(moduleInfo));
+
+copy['my-app'].files[0].imports = [];
+
+graph.update([['update', 'my-app/router.js']], copy);
+
+document.getElementById('multi-remove').innerHTML = Viz(graph.serialize());
+
+graph.update([['update', 'my-app/router.js']], moduleInfo);
+
+document.getElementById('multi-add-back').innerHTML = Viz(graph.serialize());
+
+copy = JSON.parse(JSON.stringify(moduleInfo));
+
+copy['my-engine'].files[0].imports = stash;
+
+graph.update([['update', 'my-engine/router.js']], copy);
+
+document.getElementById('multi-shared-boundary').innerHTML = Viz(graph.serialize());
 
 
 // VISUALIZE
-document.body.innerHTML = Viz(graph.serialize());
+//document.body.innerHTML = Viz(graph.serialize());
 
 
 </script>
