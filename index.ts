@@ -1,15 +1,8 @@
-import FSTree = require('fs-tree-diff');
-import { Graph } from 'graphlib';
-import {
-  default as Module,
-  ModuleOptions
-} from './module';
-import { writeFileSync } from 'fs';
-import { write as writeGraph } from 'graphlib-dot';
-import { normalizeRelativePath } from './utils';
-import { normalize } from 'path';
-import { extname } from 'path';
-import { moduleResolve } from 'amd-name-resolver'
+import { Graph, alg } from 'graphlib';
+import Module from './module';
+import stringify from 'stable-stringify';
+
+const { postOrder } = alg;
 
 export interface FSGraphOptions {
   srcDir: string;
@@ -17,151 +10,208 @@ export interface FSGraphOptions {
 }
 
 export default class FSGraph {
-  currentTree: FSTree;
-  graph: Graph;
-  srcDir: string;
-  destDir: string;
-  printed: number;
-  namespace: string;
-  constructor(options: FSGraphOptions) {
-    this.srcDir = options.srcDir;
-    this.currentTree = new FSTree();
+  private roots: string[];
+  private moduleInfos: Object;
+  constructor(...roots: string[]) {
+    this.roots = roots;
     this.graph = new Graph();
-    this.printed = 0;
-    this.namespace = options.namespace;
   }
 
-  private verifyGraph(relativePath: string, inputPath: string) {
-    let normalizedPath = this.pathByNamespace(relativePath);
+  calculateGraph(patches, moduleInfos) {
+    let [op, relativePath] = patches[0];
+    if (stringify(this.moduleInfos) !== stringify(moduleInfos)) {
+      this.moduleInfos = moduleInfos;
+      switch (op) {
+        case 'update':
+          this.update(patches, moduleInfos);
+          break;
+        case 'delete':
+          this.remove(patches, moduleInfos);
+          break;
+        case 'create':
+          this.create(patches, moduleInfos);
+          break;
+      }
+    }
 
-    let mod = this.graph.node(normalizedPath.id);
-    let patchImports = mod.calculateImports();
-    return patchImports.map(patch => {
-      let operation = patch[0];
-      let importPath = patch[1];
-      if (this.graph.node(importPath)) {
-        if (operation === 'connect') {
-          this.graph.setEdge(relativePath, importPath);
+    this.prune();
 
-          let inEdges = this.graph.outEdges(importPath);
-          let inEdgePaths = inEdges.map(edge => this.graph.node(edge.v).inputPath);
+    return this.construct();
+  }
 
-          return [inputPath, ...inEdgePaths];
-        } else if (operation === 'disconnect') {
-          this.graph.removeEdge(normalizedPath.id, importPath);
+  construct() {
+    return this.graph.nodes().map((node) => this.graph.node(node).name);
+  }
 
-          let inEdges = this.graph.inEdges(importPath);
+  private create(patches, moduleInfos) {
+    this.moduleInfos = moduleInfos;
+    patches.forEach(([, relativePath]) => {
+      let ns = this.ns(relativePath);
+      let moduleInfo = moduleInfos[ns];
 
-          return null;
+      for (let i = 0; i < moduleInfo.files.length; i++) {
+        let fileName = moduleInfo.files[i].name;
+        if (fileName === relativePath) {
+          this.appendNode(ns, relativePath, moduleInfo.files[i]);
+          break;
         }
       }
-      // TODO we need to handle things coming out of node_modules
-    }).filter(Boolean);
+    });
   }
 
-  private pathByNamespace(relativePath) {
-    let parts = relativePath.split('/');
-    let namespace = parts[0];
-    let id = relativePath.replace(extname(relativePath), '');
-    let path = relativePath;
-
-    return {
-      namespace,
-      id,
-      path
-    }
+  private remove(patches, moduleInfos) {
+    patches.forEach(([, relativePath]) => {
+      this.removeNodes(relativePath);
+    });
   }
 
-  private addToGraph(relativePath, inputPath) {
-    let normalizedPath = this.pathByNamespace(relativePath);
+  private removeNodes(relativePath) {
+    let outEdges = this.graph.outEdges(relativePath);
+    outEdges.forEach(({ v: _vertix, w: _node }) => {
+      this.graph.removeEdge(_vertix, _node);
+      let module = this.graph.node(_node);
+      let inEdges = this.graph.inEdges(_node) || [];
 
-    if (this.graph.node(normalizedPath.id)) return;
-
-    let mod = new Module({
-      id: normalizedPath.id,
-      namespace: normalizedPath.namespace,
-      relativePath,
-      inputPath
+      if (inEdges.length === 0) {
+        let outEdges = this.graph.outEdges(_node);
+        this.removeNodes(_node);
+        this.graph.removeNode(_node);
+      }
     });
 
-    this.graph.setNode(mod.id, mod);
+    this.graph.removeNode(relativePath);
+  }
 
-    mod.imports.forEach(dep => {
-      this.graph.setEdge(mod.id, dep);
-      let normalizedPath = this.pathByNamespace(relativePath);
-
-      if (normalizedPath.namespace === this.namespace) {
-        let inputPath = `${this.srcDir}/${relativePath}.ts`;
-        let outputPath = `${this.destDir}/${relativePath}.ts`;
-        this.addToGraph(relativePath, inputPath);
-      } else {
-        console.log('EXTERNAL: ' + normalizedPath.path);
+  private update(patches, moduleInfos) {
+    patches.forEach(([, relativePath]) => {
+      let ns = this.ns(relativePath);
+      let moduleInfo = moduleInfos[ns];
+      for (let i = 0; i < moduleInfo.files.length; i++) {
+        let fileName = moduleInfo.files[i].name;
+        if (fileName === relativePath) {
+          this.verifyNode(ns, relativePath, moduleInfo.files[i]);
+          break;
+        }
       }
     });
   }
 
-  private removeFromGraph(relativePath) {
-    let normalizedPath = this.pathByNamespace(relativePath);
-    let id = normalizedPath.id;
+  private verifyNode(ns, relativePath, moduleInfo) {
+    let outEdges = this.graph.outEdges(relativePath);
+    if (moduleInfo.imports.length === 0) {
+      outEdges.forEach((edge) => {
+        let { w } = edge;
+        this.graph.removeNode(w);
+      });
+    } else {
+      moduleInfo.imports.forEach(({ source }) => source);
+      outEdges.forEach(({ w: outEdge }) => {
+        if (!moduleInfo.imports.includes(outEdge)) {
+          this.graph.removeNode(outEdge);
+        }
+      });
 
-    let inEdges = this.graph.inEdges(id) || []
-    let inVertices = inEdges.map(edge => edge.v);
-    let outEdges = this.graph.outEdges(id) || [];
-    let outVertices = outEdges.map(edge => edge.w) || [];
-
-    if (inVertices.length === 0) {
-      this.graph.removeNode(id);
-      outVertices.forEach(node => {
-        if (this.graph.node(node)) {
-          this.removeFromGraph(this.graph.node(node).relativePath);
+      moduleInfo.imports.forEach(({ source }) => {
+        if (!this.graph.node(source)) {
+          this.appendNode(ns, relativePath, moduleInfo);
         }
       });
     }
   }
 
-  private computeGraph(operation: string, relativePath: string): void {
-    let inputPath = `${this.srcDir}/${relativePath}`;
+  private appendNode(root, relativePath, moduleInfo) {
+    let module = this.graph.node(relativePath);
 
-    switch (operation) {
-      case 'add':
-        this.addToGraph(relativePath, inputPath);
-        break;
-      case 'verify':
-        this.verifyGraph(relativePath, inputPath);
-        break;
-      case 'remove':
-        this.removeFromGraph(relativePath);
-        break;
+    if (!module) {
+      module = new Module(root, relativePath);
+      this.graph.setNode(relativePath, module);
     }
+
+    if (this._isRootEntry(root)) {
+      module.rooted(relativePath);
+    }
+
+    moduleInfo.imports.forEach((dependency) => {
+      let dependencyName = `${dependency.source}.js`;
+      let dependencyModule = this.graph.node(dependencyName);
+      let ns = this.ns(dependencyName);
+
+      if (!dependencyModule) {
+        dependencyModule = module.chain(ns, dependencyName);
+      }
+
+      // transitively mark dependencies as rooted
+      if (module.isRooted()) {
+        dependencyModule.rooted(relativePath);
+      }
+
+      this.graph.setNode(dependencyName, dependencyModule);
+      this.graph.setEdge(relativePath, dependencyName);
+
+      let [depsOfDep] = this.moduleInfos[ns].files.filter((file) => file.name === dependencyName);
+
+      if (depsOfDep.imports.length > 0) {
+        this.appendNode(dependencyModule.root, dependencyName, depsOfDep);
+      }
+    });
   }
 
-  printGraph() {
-    writeFileSync(`./graph.${this.printed}.dot`, writeGraph(this.graph));
-    this.printed++;
-  }
+  private getRoots() {
+    let nodes = this.graph.nodes();
+    let rooted = {};
 
-  calculatePatch(entries) {
-    let nextTree = FSTree.fromEntries(entries);
-    let currentTree = this.currentTree;
-    this.currentTree = nextTree;
-    var patches = currentTree.calculatePatch(nextTree).map(patch => [patch[0], patch[1]]);
-
-    patches.forEach(patch => {
-      let operation = patch[0];
-      let relativePath = patch[1];
-      switch(operation) {
-        case 'change':
-          this.computeGraph('verify', relativePath);
-          break;
-        case 'create':
-          this.computeGraph('add', relativePath);
-          break;
-        case 'unlink':
-          this.computeGraph('remove', relativePath);
-          break;
+    nodes.forEach((name) => {
+      let { root } =  this.graph.node(name);
+      if (this._isRootEntry(root)) {
+        if (rooted[root] && !rooted[root].includes(name)) {
+          rooted[root].push(name);
+        } else if (!rooted[root]) {
+          rooted[root] = [name];
+        }
       }
     });
 
-    return this.graph.nodes().map(node => this.graph.node(node).relativePath);
+    return rooted;
+  }
+
+  private prune() {
+    let pruned = {};
+    let roots = this.getRoots();
+    let rootNames = Object.keys(roots);
+
+    rootNames.forEach((root) => {
+      let _roots = roots[root];
+      _roots.forEach((name) => {
+        let connected = postOrder(this.graph, name);
+        if (pruned[root]) {
+          pruned[root] = pruned[root].concat(connected.filter((node) => {
+            return !pruned[root].includes(node);
+          }))
+        } else {
+          pruned[root] = connected;
+        }
+      })
+    });
+
+    let nodes = this.graph.nodes();
+
+    Object.keys(pruned).forEach((root) => {
+      nodes.forEach((node) => {
+        let module = this.graph.node(node);
+
+        if (!module || !module.isRooted()) {
+          this.graph.removeNode(node);
+        }
+      });
+    });
+  }
+
+  private ns(relativePath) {
+    let [ns] = relativePath.split('/');
+    return ns;
+  }
+
+  private _isRootEntry(potentialRoot) {
+    return this.roots.indexOf(potentialRoot) > -1;
   }
 }

@@ -1,47 +1,79 @@
 # FS Graph Diff
 
-The purpose of this module is to return a list of files in a retained dependency graph.
-
-Given:
-
+### Example
 ```
-dummy/index.js
-dummy/foo.js
-dummy/bar.js
-dummy/bizz.js
-dummy/routes/application.js
-dummy/routes/leaf.js
+let graph = new FSGraph('my-app');
+let retainedGraph = graph.calculateGraph(
+  ['create', 'my-app/router.js'],
+  ['create', 'my-app/main.js'],
+  ['create', 'my-app/ui/components/foo-bar/component.js'],
+  ['create', 'my-addon/ui/components/baz-bar/component.js'],
+  ['create', 'my-addon/utils/strings.js'],
+  ['create', 'my-addon/utils/messaging.js'],
+  {
+    "my-app": {
+      files: [
+        {
+          name: 'my-app/router.js',
+          imports: [
+            {
+              source: 'my-addon/utils/messaging',
+              specifiers: [
+                {
+                  imported: 'default',
+                  kind: 'name',
+                  local: 'Messaging'
+                }
+              ]
+            }
+          ]
+        },
+        {
+          name: 'my-app/main.js',
+          imports: []
+        },
+        {
+          name: 'my-app/ui/components/foo-bar/component.js',
+          imports: []
+        }
+      ]
+    },
+    "my-addon":     {
+      files: [
+        {
+          name: 'my-addon/utils/messaging.js',
+          imports: []
+        },
+        {
+          name: 'my-addon/utils/strings.js',
+          imports: []
+        },
+        {
+          name: 'my-addon/ui/components/baz-bar/component.js',
+          imports: [
+            {
+              source: 'my-addon/utils/messaging',
+              specifiers: [
+                {
+                  imported: 'default',
+                  kind: 'name',
+                  local: 'Messaging'
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+);
+
+console.log(retainedGraph)
+/*
+[
+  'my-app/router.js',
+  'my-app/main.js',
+  'my-addon/utils/messaging.js'
+]
+*/
 ```
-
-Parse all of the files in the list and return the connected graph:
-
-```
-"dummy/bizz" -> "dummy/bar"
-"dummy/bizz" -> "dummy/foo"
-"dummy/foo" -> "dummy/bar"
-"dummy/index" -> "dummy/foo"
-"dummy/routes/application" -> "dummy/foo"
-"dummy/routes/application" -> "dummy/routes/leaf"
-```
-
-![](./graph.adding.png)
-
-If the files list then becomes:
-
-```
-dummy/index.js
-dummy/foo.js
-dummy/bar.js
-dummy/bizz.js
-```
-
-The graph should detect that the files were removed and re-resolve the graph giving you:
-
-```
-"dummy/bizz" -> "dummy/bar"
-"dummy/bizz" -> "dummy/foo"
-"dummy/foo" -> "dummy/bar"
-"dummy/index" -> "dummy/foo"
-```
-
-![](./graph.removing.png)
