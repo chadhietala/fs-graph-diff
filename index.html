@@ -186,14 +186,14 @@ class FSGraph {
     let outEdges = this.graph.outEdges(relativePath);
     if (moduleInfo.imports.length === 0) {
       outEdges.forEach((edge) => {
-        let { w } = edge;
-        this.graph.removeNode(w);
+        let { w, v } = edge;
+        this.graph.removeEdge(v, w);
       });
     } else {
       moduleInfo.imports.forEach(({ source }) => source);
-      outEdges.forEach(({ w: outEdge }) => {
-        if (!moduleInfo.imports.includes(outEdge)) {
-          this.graph.removeNode(outEdge);
+      outEdges.forEach(({ w, v }) => {
+        if (!moduleInfo.imports.includes(w)) {
+          this.graph.removeEdge(v, w);
         }
       });
 
@@ -325,7 +325,18 @@ let moduleInfo = {
       },
       {
         name: 'my-app/main.js',
-        imports: []
+        imports: [
+          {
+            source: 'my-addon/utils/messaging',
+            specifiers: [
+              {
+                imported: 'default',
+                kind: 'name',
+                local: 'Messaging'
+              }
+            ]
+          }
+        ]
       },
       {
         name: 'my-app/ui/components/foo-bar/component.js',
@@ -390,7 +401,6 @@ graph.update(
 
 document.getElementById('idempotent').innerHTML = Viz(graph.serialize());
 
-
 // Remove the dependency
 let copy = JSON.parse(JSON.stringify(moduleInfo));
 copy['my-app'].files[0].imports = [];
@@ -401,6 +411,7 @@ graph.update(
 );
 
 document.getElementById('remove').innerHTML = Viz(graph.serialize());
+
 
 // Add the dependency back
 graph.update(
@@ -495,9 +506,7 @@ copy['my-app'].files[1].imports.push({
   ]
 });
 
-console.log(copy['my-app'].files[1]);
 
-debugger;
 graph.update(
   [['update', 'my-app/ui/components/foo-bar/component.js']],
   copy
@@ -507,6 +516,7 @@ document.getElementById('unroot-add').innerHTML = Viz(graph.serialize());
 
 
 /***************************************/
+
 
 graph = new FSGraph('my-app', 'my-engine');
 let enginePatches = [['create', 'my-engine/router.js'], ...patches];
@@ -572,9 +582,9 @@ graph.update([['update', 'my-engine/router.js']], copy);
 document.getElementById('multi-shared-boundary').innerHTML = Viz(graph.serialize());
 
 
+console.log(graph.serialize())
 // VISUALIZE
 //document.body.innerHTML = Viz(graph.serialize());
-
 
 </script>
 </body>
